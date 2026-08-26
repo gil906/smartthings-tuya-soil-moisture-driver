@@ -1,0 +1,14 @@
+name: soil-moisture-sensor
+components:
+  - id: main
+    capabilities:
+      - id: cablenature06678.soilMoisture
+        version: 1
+      - id: temperatureMeasurement
+        version: 1
+      - id: battery
+        version: 1
+      - id: refresh
+        version: 1
+    categories:
+      - name: PlantGrower

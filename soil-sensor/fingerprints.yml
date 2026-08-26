@@ -1,0 +1,6 @@
+zigbeeManufacturer:
+  - id: "HOBEIAN Soil Sensor ZG-303Z"
+    deviceLabel: "Soil Moisture Sensor"
+    manufacturer: "HOBEIAN"
+    model: "ZG-303Z"
+    deviceProfileName: soil-moisture-sensor

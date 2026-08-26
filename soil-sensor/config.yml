@@ -1,0 +1,8 @@
+name: tuya-soil-moisture-hobeian-zg303z
+packageKey: tuya-soil-moisture-zg303z
+permissions:
+  zigbee: {}
+metadata:
+  deviceType: Sensor
+  ocfDeviceType: oic.d.sensor
+  deviceTypeId: Sensor
