@@ -12,6 +12,10 @@ Automation").
 
 **Buy the sensor this driver targets:** [AliExpress listing](https://a.aliexpress.com/_mPCfepD)
 
+## Real-world install
+
+![The actual physical sensor installed in a real potted plant](https://github.com/user-attachments/assets/b670e0d5-b88e-4d80-a5c8-0a7bb21db576)
+
 ## Proof it works
 
 ![Working in the SmartThings app — Soil Moisture 92%, separate from Humidity 15% and Temperature 67.3°F](https://github.com/user-attachments/assets/2f905d48-5706-4116-8ec9-6a0f9253a28b)
