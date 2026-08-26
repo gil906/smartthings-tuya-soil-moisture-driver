@@ -10,45 +10,56 @@
 > model (see below) before installing.
 
 A working SmartThings Edge driver that fixes a real, confirmed bug in how
-SmartThings displays data from Tuya-based Zigbee soil moisture sensors
-(manufacturer `HOBEIAN`, model `ZG-303Z`, and clones sold under other
-storefront names with the same hardware).
+SmartThings displays data from Tuya-based Zigbee **3-in-1** soil sensors
+(soil moisture + air temperature + air humidity — manufacturer `HOBEIAN`,
+model `ZG-303Z`, and clones sold under other storefront names with the
+same hardware).
 
 ## The problem this fixes
 
-These sensors have a real soil-moisture probe, but instead of using any
-Tuya-proprietary datapoint for it, they report the live soil moisture reading
-through the **standard Zigbee Relative Humidity Measurement cluster**
-(`0x0405`) — the exact same cluster real ambient-humidity sensors use.
-SmartThings' generic Zigbee humidity driver therefore (correctly, from its
-own point of view) maps that cluster straight to the standard
-`relativeHumidityMeasurement` capability. The result: every automation,
-Routine, and dashboard reads the soil moisture number as if it were plain
-room humidity — because as far as the platform is concerned, that's exactly
-what a `0x0405` report always means.
+These sensors report three separate readings, but SmartThings' generic
+Zigbee humidity driver only ever surfaces two of them correctly
+(temperature, and one "Humidity" tile) — it has no concept of "soil
+moisture" at all, so the real soil-moisture data was effectively lost/
+mislabeled, and the "Humidity" tile shown in the app didn't match either
+value cleanly.
 
-**Verified 2026-08-25** against two real units, both live-logged while
-physically triggering a moisture change: the value reported on the standard
-humidity cluster exactly matched the sensor's own Tuya diagnostic datapoint
-for soil moisture at the same instant, and both moved together in response
-to a real moisture change — confirming this is genuinely the live soil
-signal being reported on the "wrong" (standard) cluster, not a coincidence
-or a separate hidden datapoint that needed to be hunted down.
+**Corrected 2026-08-26** after testing against two real units with live
+Zigbee traffic captured: the sensor actually exposes **two independent
+percentage values** over two different channels:
+
+- The **standard Zigbee Relative Humidity Measurement cluster** (`0x0405`)
+  — this is genuine **ambient/air humidity**. Its value swung widely
+  (16% → 51% → 27% → 19%) over a short window, consistent with real
+  room-air behavior.
+- A **separate Tuya-proprietary datapoint (DP 109 / `0x6D`)** sent over the
+  private `0xEF00` cluster — this is the **real soil moisture** reading.
+  It stayed steady (~75–76%) over the same window, exactly the stability
+  difference you'd expect between soil (changes over hours/days) and air
+  (changes minute to minute). This DP number also matches the
+  community-documented mapping for this same Tuya soil-sensor hardware
+  family in other ecosystems (zigbee-herdsman-converters / ZHA quirks for
+  the related ZG-303Z / C3007 devices).
+
+An earlier version of this driver incorrectly assumed the standard
+humidity cluster *was* the soil reading and remapped it to "Soil
+Moisture" — that was wrong, and has been corrected. See commit history if
+curious; this README reflects the current, verified-correct behavior.
 
 ## The fix
 
-This driver still listens on the same standard `RelativeHumidity` cluster
-(so it keeps working with the sensor's real, unmodifiable behavior), but
-instead of mapping it to `relativeHumidityMeasurement`, it emits a
-**dedicated custom "Soil Moisture" capability** — a fully separate tile,
-so automations and dashboards can no longer confuse it with ambient
-humidity. Temperature and Battery continue to use their standard Zigbee
-clusters/capabilities exactly as before — only the mislabeled
-humidity-that's-actually-soil-moisture cluster needed remapping.
+This driver now reports all three real values, each mapped correctly:
 
-The custom capability is intentionally **read-only** (no settable/editable
-field) since the sensor's own hardware is the only real source of truth for
-this value — there's nothing to "set" from the app.
+| Sensor channel | SmartThings capability |
+|---|---|
+| Standard ZCL Temperature cluster | `temperatureMeasurement` (Air Temperature) |
+| Standard ZCL RelativeHumidity cluster | `relativeHumidityMeasurement` (Air Humidity) |
+| Tuya `0xEF00` cluster, datapoint 109 | Custom **Soil Moisture** capability |
+| Standard Battery cluster | `battery` |
+
+The custom Soil Moisture capability is intentionally **read-only** (no
+settable/editable field) since the sensor's own hardware is the only real
+source of truth for this value — there's nothing to "set" from the app.
 
 ## Install it on your own hub
 
@@ -58,15 +69,16 @@ this value — there's nothing to "set" from the app.
 3. In the SmartThings app: your soil sensor's device page → `...` menu →
    **Driver** → **Select different driver** → pick
    **tuya-soil-moisture-hobeian-zg303z**.
-4. If it was previously stuck reporting soil moisture as "Humidity," it
-   should now show a proper separate **Soil Moisture** tile instead.
+4. You should now see a proper separate **Soil Moisture** tile alongside
+   **Humidity** (air) and **Temperature**, instead of soil moisture being
+   missing or conflated with room humidity.
 
 ## Files
 
 - `soil-sensor/config.yml` — driver metadata, permissions, device type
 - `soil-sensor/fingerprints.yml` — maps `HOBEIAN` / `ZG-303Z` to the profile
-- `soil-sensor/profiles/soil-moisture-sensor.yml` — capabilities exposed (custom Soil Moisture, temperature, battery, refresh); uses the official `PlantGrower` device category so the app shows a plant icon instead of a generic sensor icon
-- `soil-sensor/src/init.lua` — the actual remapping logic, fully commented
+- `soil-sensor/profiles/soil-moisture-sensor.yml` — capabilities exposed (custom Soil Moisture, temperature, humidity, battery, refresh); uses the official `PlantGrower` device category so the app shows a plant icon instead of a generic sensor icon
+- `soil-sensor/src/init.lua` — the actual parsing/mapping logic, fully commented, including the Tuya DP-report parser
 
 ## Building/uploading it yourself (if you want your own channel instead)
 
@@ -87,19 +99,19 @@ references a capability ID under this author's namespace
 
 ## The physical device
 
-Targets Tuya Zigbee soil moisture sensors identifying over Zigbee as
+Targets Tuya Zigbee **3-in-1** soil sensors identifying over Zigbee as
 manufacturer `HOBEIAN`, model `ZG-303Z` — commonly sold under various
-generic/white-label storefront names (search "Tuya Zigbee soil moisture
-sensor 3 in 1" on AliExpress or similar marketplaces) reporting soil
-moisture, air temperature, and battery, requiring a Zigbee 3.0 hub
+generic/white-label storefront names (search "Tuya Zigbee 3 in 1 soil
+moisture sensor" on AliExpress or similar marketplaces), reporting soil
+moisture, air temperature, and air humidity, requiring a Zigbee 3.0 hub
 (SmartThings, or Home Assistant with a Zigbee coordinator).
 
 ## Disclaimer
 
 This is a community-built driver, not official Tuya or SmartThings
-software. It only affects how the reading is displayed/labeled in
+software. It only affects how the readings are displayed/labeled in
 SmartThings — it doesn't change or calibrate the sensor's underlying
-hardware measurement in any way.
+hardware measurements in any way.
 
 ## License
 
