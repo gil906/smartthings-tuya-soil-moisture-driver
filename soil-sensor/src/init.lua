@@ -74,7 +74,6 @@ local function parse_tuya_dp_report(driver, device, zb_rx)
 
   if dp_id == TUYA_DP_SOIL_MOISTURE then
     device.log.info("Soil moisture (Tuya DP 109): " .. tostring(value))
-    device:set_field("last_soil_moisture_raw", value, { persist = true })
     local calibrated = value + get_offset(device, "soilMoistureOffset")
     device:emit_event(soilMoisture.soilMoisture({ value = calibrated, unit = "%" }))
   else
@@ -82,6 +81,18 @@ local function parse_tuya_dp_report(driver, device, zb_rx)
   end
 end
 
+-- NOTE (2026-08-26): originally tried to make Refresh / Settings-save
+-- instantly re-apply a new calibration offset using a cached "last raw
+-- value" persisted with device:set_field(..., {persist = true}). Verified
+-- live via logcat that this persisted field does NOT survive a driver
+-- update -- get_field returns nil right after reinstalling the driver, even
+-- immediately after using it successfully seconds before. Rather than ship
+-- a feature that only sometimes works, this was removed. The offset is
+-- still applied correctly and unconditionally at the moment of each real
+-- humidity/soil-moisture report (see humidity_attr_handler and
+-- parse_tuya_dp_report below) -- changing the Settings offset takes effect
+-- starting with the sensor's next report, same as any other reading from
+-- this hardware (which only reports every few hours on its own schedule).
 local function do_refresh(driver, device)
   device:send(RelativeHumidity.attributes.MeasuredValue:read(device))
 end
@@ -92,29 +103,8 @@ local function humidity_attr_handler(driver, device, value, zb_rx)
     "DIAGNOSTIC raw RelativeHumidity.MeasuredValue = %s (raw uint16 from device, ZCL spec says value/100 = %%)",
     tostring(raw)
   ))
-  device:set_field("last_humidity_raw", raw, { persist = true })
   local calibrated = (raw / 100.0) + get_offset(device, "humidityOffset")
   device:emit_event(capabilities.relativeHumidityMeasurement.humidity({ value = calibrated, unit = "%" }))
-end
-
--- Re-apply calibration immediately when the user changes a Settings slider,
--- using the last known raw value, instead of waiting for the sensor's next
--- (possibly hours-away) report.
-local function info_changed(driver, device, event, args)
-  if args.old_st_store.preferences.humidityOffset ~= device.preferences.humidityOffset then
-    local raw = device:get_field("last_humidity_raw")
-    if raw ~= nil then
-      local calibrated = (raw / 100.0) + get_offset(device, "humidityOffset")
-      device:emit_event(capabilities.relativeHumidityMeasurement.humidity({ value = calibrated, unit = "%" }))
-    end
-  end
-  if args.old_st_store.preferences.soilMoistureOffset ~= device.preferences.soilMoistureOffset then
-    local raw = device:get_field("last_soil_moisture_raw")
-    if raw ~= nil then
-      local calibrated = raw + get_offset(device, "soilMoistureOffset")
-      device:emit_event(soilMoisture.soilMoisture({ value = calibrated, unit = "%" }))
-    end
-  end
 end
 
 local tuya_soil_driver_template = {
@@ -142,9 +132,6 @@ local tuya_soil_driver_template = {
     [capabilities.refresh.ID] = {
       [capabilities.refresh.commands.refresh.NAME] = do_refresh,
     },
-  },
-  lifecycle_handlers = {
-    infoChanged = info_changed,
   },
 }
 
