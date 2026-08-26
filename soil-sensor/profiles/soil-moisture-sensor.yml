@@ -14,3 +14,20 @@ components:
         version: 1
     categories:
       - name: LeakSensor
+preferences:
+  - name: humidityOffset
+    title: "Air Humidity Calibration"
+    description: "Added to the raw humidity reading to match a trusted reference sensor (e.g. Airthings). Positive value increases the displayed %."
+    preferenceType: number
+    definition:
+      minimum: -50
+      maximum: 50
+      default: 46
+  - name: soilMoistureOffset
+    title: "Soil Moisture Calibration"
+    description: "Added to the raw soil moisture reading. Positive value increases the displayed %."
+    preferenceType: number
+    definition:
+      minimum: -50
+      maximum: 50
+      default: 0
