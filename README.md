@@ -2,18 +2,15 @@
 
 ![Soil moisture sensor listing](https://github.com/user-attachments/assets/87b4d6f5-7540-43cb-929b-80b0a7351636)
 
-> **Note on the photo above:** this is a listing image for a similar "3-in-1 Tuya
-> Zigbee" soil/temperature/humidity sensor (same product family/behavior as the
-> HOBEIAN ZG-303Z this driver targets) — included for a visual reference of what
-> this class of sensor looks like and what it measures, not a guaranteed exact
-> match to every seller's version. Always confirm your own unit's manufacturer/
-> model (see below) before installing.
-
 A working SmartThings Edge driver that fixes a real, confirmed bug in how
 SmartThings displays data from Tuya-based Zigbee **3-in-1** soil sensors
 (soil moisture + air temperature + air humidity — manufacturer `HOBEIAN`,
 model `ZG-303Z`, and clones sold under other storefront names with the
-same hardware).
+same hardware, e.g. "Zigbee Soil Tester Moisture Sensor Temperature
+Humidity Meter Luminance Fertility Detector For Tuya Smart Life Z2MQTT
+Automation").
+
+**Buy the sensor this driver targets:** [AliExpress listing](https://a.aliexpress.com/_mPCfepD)
 
 ## The problem this fixes
 
@@ -77,7 +74,7 @@ source of truth for this value — there's nothing to "set" from the app.
 
 - `soil-sensor/config.yml` — driver metadata, permissions, device type
 - `soil-sensor/fingerprints.yml` — maps `HOBEIAN` / `ZG-303Z` to the profile
-- `soil-sensor/profiles/soil-moisture-sensor.yml` — capabilities exposed (custom Soil Moisture, temperature, humidity, battery, refresh); uses the official `PlantGrower` device category so the app shows a plant icon instead of a generic sensor icon
+- `soil-sensor/profiles/soil-moisture-sensor.yml` — capabilities exposed (custom Soil Moisture, temperature, humidity, battery, refresh); uses the `LeakSensor` device category so the app shows a water-drop moisture icon
 - `soil-sensor/src/init.lua` — the actual parsing/mapping logic, fully commented, including the Tuya DP-report parser
 
 ## Building/uploading it yourself (if you want your own channel instead)
@@ -101,10 +98,12 @@ references a capability ID under this author's namespace
 
 Targets Tuya Zigbee **3-in-1** soil sensors identifying over Zigbee as
 manufacturer `HOBEIAN`, model `ZG-303Z` — commonly sold under various
-generic/white-label storefront names (search "Tuya Zigbee 3 in 1 soil
-moisture sensor" on AliExpress or similar marketplaces), reporting soil
-moisture, air temperature, and air humidity, requiring a Zigbee 3.0 hub
-(SmartThings, or Home Assistant with a Zigbee coordinator).
+generic/white-label storefront names, e.g.
+["Zigbee Soil Tester Moisture Sensor Temperature Humidity Meter Luminance
+Fertility Detector For Tuya Smart Life Z2MQTT Automation"](https://a.aliexpress.com/_mPCfepD)
+on AliExpress — reporting soil moisture, air temperature, and air
+humidity, requiring a Zigbee 3.0 hub (SmartThings, or Home Assistant with
+a Zigbee coordinator).
 
 ## Disclaimer
 
