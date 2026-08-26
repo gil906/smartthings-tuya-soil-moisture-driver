@@ -37,6 +37,24 @@ local soilMoisture = capabilities["cablenature06678.soilMoisture"]
 local TUYA_CLUSTER = 0xEF00
 local TUYA_DP_SOIL_MOISTURE = 109 -- 0x6D
 
+-- CALIBRATION (2026-08-26): added after confirming, via live raw-wire capture,
+-- that this hardware's humidity reading is a genuine, consistent low bias
+-- (~35-40 points below a trusted reference sensor in the same room) -- not a
+-- driver bug, not a unit mixup, not a reversed value. Since there's no
+-- software fix for the sensor's own calibration, we expose a per-device
+-- "Air Humidity Calibration" and "Soil Moisture Calibration" offset setting
+-- (Settings tab in the SmartThings app) so each physical unit can be
+-- corrected to match a reference sensor. Offset is added AFTER the standard
+-- ZCL scaling, so it's always a plain "+/- percentage points" adjustment.
+local function get_offset(device, pref_name)
+  local prefs = device.preferences
+  local v = prefs and prefs[pref_name]
+  if v == nil then
+    return 0
+  end
+  return v
+end
+
 local function parse_tuya_dp_report(driver, device, zb_rx)
   -- Tuya 0xEF00 "data report" payloads are a custom binary format:
   -- byte 0-1: seq number, byte 2: dp id, byte 3: dp type, byte 4-5: dp len,
@@ -56,7 +74,9 @@ local function parse_tuya_dp_report(driver, device, zb_rx)
 
   if dp_id == TUYA_DP_SOIL_MOISTURE then
     device.log.info("Soil moisture (Tuya DP 109): " .. tostring(value))
-    device:emit_event(soilMoisture.soilMoisture({ value = value, unit = "%" }))
+    device:set_field("last_soil_moisture_raw", value, { persist = true })
+    local calibrated = value + get_offset(device, "soilMoistureOffset")
+    device:emit_event(soilMoisture.soilMoisture({ value = calibrated, unit = "%" }))
   else
     device.log.info("Unhandled/diagnostic Tuya DP id " .. tostring(dp_id) .. " = " .. tostring(value))
   end
@@ -64,6 +84,37 @@ end
 
 local function do_refresh(driver, device)
   device:send(RelativeHumidity.attributes.MeasuredValue:read(device))
+end
+
+local function humidity_attr_handler(driver, device, value, zb_rx)
+  local raw = value.value
+  device.log.info(string.format(
+    "DIAGNOSTIC raw RelativeHumidity.MeasuredValue = %s (raw uint16 from device, ZCL spec says value/100 = %%)",
+    tostring(raw)
+  ))
+  device:set_field("last_humidity_raw", raw, { persist = true })
+  local calibrated = (raw / 100.0) + get_offset(device, "humidityOffset")
+  device:emit_event(capabilities.relativeHumidityMeasurement.humidity({ value = calibrated, unit = "%" }))
+end
+
+-- Re-apply calibration immediately when the user changes a Settings slider,
+-- using the last known raw value, instead of waiting for the sensor's next
+-- (possibly hours-away) report.
+local function info_changed(driver, device, event, args)
+  if args.old_st_store.preferences.humidityOffset ~= device.preferences.humidityOffset then
+    local raw = device:get_field("last_humidity_raw")
+    if raw ~= nil then
+      local calibrated = (raw / 100.0) + get_offset(device, "humidityOffset")
+      device:emit_event(capabilities.relativeHumidityMeasurement.humidity({ value = calibrated, unit = "%" }))
+    end
+  end
+  if args.old_st_store.preferences.soilMoistureOffset ~= device.preferences.soilMoistureOffset then
+    local raw = device:get_field("last_soil_moisture_raw")
+    if raw ~= nil then
+      local calibrated = raw + get_offset(device, "soilMoistureOffset")
+      device:emit_event(soilMoisture.soilMoisture({ value = calibrated, unit = "%" }))
+    end
+  end
 end
 
 local tuya_soil_driver_template = {
@@ -81,11 +132,19 @@ local tuya_soil_driver_template = {
         [0x02] = parse_tuya_dp_report, -- some firmwares use 0x02 for reports
       },
     },
+    attr = {
+      [RelativeHumidity.ID] = {
+        [RelativeHumidity.attributes.MeasuredValue.ID] = humidity_attr_handler,
+      },
+    },
   },
   capability_handlers = {
     [capabilities.refresh.ID] = {
       [capabilities.refresh.commands.refresh.NAME] = do_refresh,
     },
+  },
+  lifecycle_handlers = {
+    infoChanged = info_changed,
   },
 }
 
