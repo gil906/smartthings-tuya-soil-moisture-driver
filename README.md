@@ -34,6 +34,23 @@ Verified against two real units: air humidity swung widely (16–51%) like
 real room air, while the DP109 soil reading stayed stable (~75–76%) —
 confirming these are two independent signals, not the same one mislabeled.
 
+## Air Humidity calibration
+
+This hardware's ambient humidity chip runs consistently **low** versus a
+trusted reference sensor (confirmed via live raw Zigbee capture next to an
+Airthings View Plus in the same room — not a driver bug, not a unit mixup).
+There's no software fix for the sensor's own calibration, so the driver
+exposes two Settings-tab sliders per device:
+
+- **Air Humidity Calibration** — added to the raw humidity %, default `+46`
+  (based on real-world calibration against Airthings; tune per-unit if yours
+  reads differently)
+- **Soil Moisture Calibration** — added to the raw soil moisture %, default
+  `0` (soil moisture reads accurately out of the box on the units tested)
+
+Changes apply instantly on save — no need to wait for the sensor's next
+report. In the app: device → **⚙️ Settings**.
+
 ## Proof
 
 ![Soil Moisture 92%, separate from Humidity 15% / Temp 67.3°F](https://github.com/user-attachments/assets/2f905d48-5706-4116-8ec9-6a0f9253a28b)
@@ -46,8 +63,8 @@ here. Temperature/Humidity still chart normally.)*
 ## Files
 
 - `soil-sensor/config.yml`, `fingerprints.yml` — driver metadata + device match
-- `soil-sensor/profiles/soil-moisture-sensor.yml` — capabilities + icon
-- `soil-sensor/src/init.lua` — the DP109 parsing/mapping logic, commented
+- `soil-sensor/profiles/soil-moisture-sensor.yml` — capabilities + icon + calibration preferences
+- `soil-sensor/src/init.lua` — the DP109 parsing/mapping logic + calibration offsets, commented
 
 ## Build your own channel instead
 
