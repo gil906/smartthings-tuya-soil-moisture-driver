@@ -21,6 +21,15 @@ tile, completely independent from the Temperature/Humidity card below it
 (67.3°F / 15%) — confirming the fix actually separates the two signals
 correctly instead of conflating them.
 
+![Same device — Air Temperature/Humidity history chart, confirming standard capability history still works normally](https://github.com/user-attachments/assets/1c55e957-1f3c-477d-9fe9-34169c123971)
+
+The Temperature/Humidity card also shows a normal SmartThings history
+chart, since those stayed on their standard capabilities. (Note: the
+custom Soil Moisture tile does *not* get a history chart in the app —
+this is a platform-wide SmartThings limitation on all custom capabilities,
+not something specific to this driver; the live value itself is fully
+accurate regardless.)
+
 ## The problem this fixes
 
 These sensors report three separate readings, but SmartThings' generic
