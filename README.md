@@ -1,6 +1,6 @@
 # SmartThings Edge Driver — Tuya Soil Moisture Sensor (HOBEIAN `ZG-303Z`)
 
-![Soil moisture sensor listing](https://github.com/user-attachments/assets/87b4d6f5-7540-43cb-929b-80b0a7351636)
+![Zigbee Soil Tester listing — Soil Moisture, Air Temperature, Air Humidity](https://github.com/user-attachments/assets/36ffda18-0b68-4796-ae0e-e3aaf38182b8)
 
 A working SmartThings Edge driver that fixes a real, confirmed bug in how
 SmartThings displays data from Tuya-based Zigbee **3-in-1** soil sensors
