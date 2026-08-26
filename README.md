@@ -12,6 +12,15 @@ Automation").
 
 **Buy the sensor this driver targets:** [AliExpress listing](https://a.aliexpress.com/_mPCfepD)
 
+## Proof it works
+
+![Working in the SmartThings app — Soil Moisture 92%, separate from Humidity 15% and Temperature 67.3°F](https://github.com/user-attachments/assets/2f905d48-5706-4116-8ec9-6a0f9253a28b)
+
+Real device, real app screenshot: Soil Moisture (92%) shown as its own
+tile, completely independent from the Temperature/Humidity card below it
+(67.3°F / 15%) — confirming the fix actually separates the two signals
+correctly instead of conflating them.
+
 ## The problem this fixes
 
 These sensors report three separate readings, but SmartThings' generic
