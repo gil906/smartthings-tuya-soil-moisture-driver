@@ -46,6 +46,28 @@ local TUYA_DP_SOIL_MOISTURE = 109 -- 0x6D
 -- (Settings tab in the SmartThings app) so each physical unit can be
 -- corrected to match a reference sensor. Offset is added AFTER the standard
 -- ZCL scaling, so it's always a plain "+/- percentage points" adjustment.
+-- SPIKE FILTER (2026-08-27): found via analysis of real report history from
+-- both physical units that the "40-point-off" behavior we kept chasing was
+-- never a single stable bias -- the readings are actually BIMODAL. Each
+-- sensor normally reports a believable, fairly stable value (this hardware's
+-- real range, before calibration), but occasionally reports an impossible
+-- 97-100% for one brief burst before returning to its normal range.
+-- Correlating timestamps: these garbage bursts on BOTH physical sensors
+-- lined up almost exactly with times we reloaded/reinstalled this very
+-- driver -- strongly suggesting this hardware sends a stale/cached "reset"
+-- value near its max range immediately after any Zigbee-level
+-- re-init/rejoin (driver reload forces this at the hub level; the same
+-- thing likely also happens after any real radio dropout+rejoin in normal
+-- use, not just our own redeploys).
+--
+-- Real indoor air humidity essentially never reaches 90%+ in a normal home
+-- (that's swamp-cooler/bathroom-during-a-shower territory), so we treat any
+-- raw reading above this threshold as a known-bad post-init artifact and
+-- discard it rather than emit/calibrate off of it. This is what let a
+-- fixed offset keep "working, then breaking" all day -- some of the
+-- "current" values I was calibrating against were themselves garbage.
+local HUMIDITY_SANITY_MAX_RAW_PERCENT = 90
+
 local function get_offset(device, pref_name)
   local prefs = device.preferences
   local v = prefs and prefs[pref_name]
@@ -74,6 +96,7 @@ local function parse_tuya_dp_report(driver, device, zb_rx)
 
   if dp_id == TUYA_DP_SOIL_MOISTURE then
     device.log.info("Soil moisture (Tuya DP 109): " .. tostring(value))
+    device:set_field("last_soil_moisture_raw", value, { persist = true })
     local calibrated = value + get_offset(device, "soilMoistureOffset")
     device:emit_event(soilMoisture.soilMoisture({ value = calibrated, unit = "%" }))
   else
@@ -99,11 +122,19 @@ end
 
 local function humidity_attr_handler(driver, device, value, zb_rx)
   local raw = value.value
+  local raw_percent = raw / 100.0
   device.log.info(string.format(
     "DIAGNOSTIC raw RelativeHumidity.MeasuredValue = %s (raw uint16 from device, ZCL spec says value/100 = %%)",
     tostring(raw)
   ))
-  local calibrated = (raw / 100.0) + get_offset(device, "humidityOffset")
+  if raw_percent > HUMIDITY_SANITY_MAX_RAW_PERCENT then
+    device.log.warn(string.format(
+      "Rejecting implausible humidity report of %.1f%% (likely post-init/rejoin artifact, not a real reading)",
+      raw_percent
+    ))
+    return
+  end
+  local calibrated = raw_percent + get_offset(device, "humidityOffset")
   device:emit_event(capabilities.relativeHumidityMeasurement.humidity({ value = calibrated, unit = "%" }))
 end
 
